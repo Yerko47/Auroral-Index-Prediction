@@ -10,13 +10,14 @@ def config_load(paths: dict) -> dict:
     with open(config_file, "r") as f:
         config = yaml.safe_load(f)
 
-    type_model = config["model"]["type"].upper()
+    type_model = config["model"]["type"]
 
-    model_config_file = paths["config_model_file"] / f"{type_model}.yaml"
+    if type_model:
+        model_config_file = paths["config_model_file"] / f"{type_model.upper()}.yaml"
 
-    with open(model_config_file, "r") as f:
-        config_model = yaml.safe_load(f)
+        with open(model_config_file, "r") as f:
+            config_model = yaml.safe_load(f)
     
-    config["model"]["parameters"] = config_model
+        config["model"]["parameters"] = config_model
 
     return config
