@@ -1,6 +1,7 @@
 import pandas as pd
 
 from src.utils import *
+from src.dataset import *
 #from src.dataset.interpolation import run_interpolation
 
 
@@ -14,6 +15,8 @@ def main():
     set_seed(seed = cfg["project"]["seed"])
 
     logging_titulo(debug_model, titulo = f"{cfg['project']['name']}", detalle = f"Autor: {cfg['project']['author']}    |    versión: {cfg['project']['version']}")
+
+    
 
     #df = pd.read_feather(paths["raw_file"] / "omni_data_1995_to_2018.feather")
     #print(df.isna().sum())
