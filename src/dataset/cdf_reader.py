@@ -63,7 +63,7 @@ def cdf_read(cdf_file: Path, cfg: dict, debug_mode: bool, logging_info = None) -
 
     df = df.rename(columns = {native: name for name, native in cdf_rename.items()})
 
-    if no_attrs:
+    if no_attrs and logging_info is not None:
         logging_info(debug_mode, f"Variables without FILLVAL/VALIDMIN/VALIDMAX: {', '.join(no_attrs)}")
 
         for col in df.columns:
@@ -74,5 +74,42 @@ def cdf_read(cdf_file: Path, cfg: dict, debug_mode: bool, logging_info = None) -
 
     return df
 
+
+def dataset(config: dict, paths: dict, debug_mode: bool, logging_info = None) -> pd.DataFrame:
+    """
+    """
+    start_time = pd.Timestamp(config["dataset"]["time_range"]["start"])    
+    end_time = pd.Timestamp(config["dataset"]["time_range"]["end"])
+
+    save_feather_file = paths["raw_file"] / f"data_{start_time.year}_to_{end_time.year}.feather"
+
+    if save_feather_file.exists():
+        logging_info(debug_mode, 
+                     f"Loading the raw_data from feather file into {save_feather_file}"
+                     )
+        df = pd.read_feather(save_feather_file)
+
+        return df
+
+    logging_info(debug_mode,
+                 f"\n Reading OMNI data from date {start_time.strftime('%Y-%m-%d')} to {end_time.strftime('%Y-%m-%d')}"
+                 )
+
+    omni_path = paths["omni_file"]
+    date_array = pd.date_range(start = start_time, end = end_time, freq = "MS")
+
+    o = []
+    for date in date_array:
+        name_file = f"omni_hro_1min_{date.strftime('%Y%m%d')}_v01.cdf"
+        cdf = cdf_read(cdf_file = omni_path / f"{date.year}" / name_file, cfg = config, debug_mode = debug_mode, logging_info = logging_info)
+        logging_info(debug_mode, f"The file {name_file} is loading")
+        o.append(cdf)
+
+    df = pd.concat(o, axis = 0)
+    df = df.sort_index()
+
+    df.to_feather(save_feather_file)
+
+    return df
 
 
