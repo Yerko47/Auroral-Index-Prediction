@@ -12,7 +12,7 @@ def cdf_read(cdf_file: Path, cfg: dict, debug_mode: bool, logging_info = None) -
     except Exception as e:
         raise RuntimeError(f"Error opening or reading the CDF file {cdf_file}") from e
 
-    cdf_rename = {"B_T": "F", "E": "E_Field"}
+    cdf_rename = {"B_T": "F"}
 
     columns_config = cfg["dataset"]["omni_list"] + cfg["dataset"]["auroral_index"]
     columns_dataset = [cdf_rename.get(col, col) for col in columns_config]
@@ -92,7 +92,8 @@ def dataset(config: dict, paths: dict, debug_mode: bool, logging_info = None) ->
         return df
 
     logging_info(debug_mode,
-                 f"\n Reading OMNI data from date {start_time.strftime('%Y-%m-%d')} to {end_time.strftime('%Y-%m-%d')}"
+                 f"Reading OMNI data from date {start_time.strftime('%Y-%m-%d')} to {end_time.strftime('%Y-%m-%d')}\n"
+                 f"="*70
                  )
 
     omni_path = paths["omni_file"]
@@ -109,6 +110,10 @@ def dataset(config: dict, paths: dict, debug_mode: bool, logging_info = None) ->
     df = df.sort_index()
 
     df.to_feather(save_feather_file)
+    logging_info(debug_mode,
+                 f"File saved in {save_feather_file}"
+                 f"="*70
+                 )
 
     return df
 

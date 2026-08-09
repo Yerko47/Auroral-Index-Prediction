@@ -10,19 +10,19 @@ def main():
     cfg = config_load(paths)
     config_logging(paths)
 
-    debug_model = cfg["project"]["logging"]
+    debug_mode = cfg["project"]["logging"]
 
     set_seed(seed = cfg["project"]["seed"])
 
-    logging_titulo(debug_model, titulo = f"{cfg['project']['name']}", detalle = f"Autor: {cfg['project']['author']}    |    versión: {cfg['project']['version']}")
+    logging_titulo(debug_mode, titulo = f"{cfg['project']['name']}", detalle = f"Autor: {cfg['project']['author']}    |    versión: {cfg['project']['version']}")
 
-    
+    df = dataset(cfg, paths, debug_mode, logging_info)
 
     #df = pd.read_feather(paths["raw_file"] / "omni_data_1995_to_2018.feather")
     #print(df.isna().sum())
     #* df debe venir de la lectura de datos (cdf_read); el relleno opera sobre el
     #* DataFrame con los fill values ya enmascarados a NaN
-    # resultado = run_interpolation(df, cfg, paths, debug_model, logging_info)
+    # resultado = run_interpolation(df, cfg, paths, debug_mode, logging_info)
     # df_relleno, flags = resultado["relleno"], resultado["flags"]
 
 

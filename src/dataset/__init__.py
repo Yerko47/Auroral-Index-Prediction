@@ -1,5 +1,5 @@
-from .cdf_reader import cdf_read
+from .cdf_reader import dataset
 
 __all__ = [
-    "cdf_read",
+    "dataset",
 ]
