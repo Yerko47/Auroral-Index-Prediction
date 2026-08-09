@@ -32,6 +32,7 @@ def path_file() -> dict:
         path.mkdir(parents = True, exist_ok = True)
 
     paths["base_file"] = base
+    paths["omni_file"] = Path("/data/omni/hro_1min/")
 
     return paths
 

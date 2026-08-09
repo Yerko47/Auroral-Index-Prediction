@@ -1,13 +1,17 @@
 project:
   name: "Auroral Geomagnetic Index Prediction"
   author: "Yerko Jelcic"
-  version: 0.4
+  version: 4
   seed: 42
 
   logging: True
   plot: True
 
 dataset:
+  time_range:
+    start: "1995-01-01"
+    end: "2018-12-31"
+  
   omni_list: [
     "B_T",
     "BZ_GSE",
