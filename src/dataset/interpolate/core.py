@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 def nan_runs(mask):
     """
     """
@@ -14,6 +15,7 @@ def nan_runs(mask):
 
     return [(int(s), int(e - s)) for s, e in zip(starts, ends)]
 
+
 def bin_labels(bins):
     """
     """
@@ -25,6 +27,7 @@ def bin_labels(bins):
             labels.append(f"[{int(lo)}], {int(hi)})")
     return labels
 
+
 def assign_bin(length, bins):
     """
     """
@@ -34,7 +37,7 @@ def assign_bin(length, bins):
     return len(bins) - 2
 
 
-def gap_length_distribution(df, columns):
+def gap_length_distribution(df, columns = None):
     """
     """
     if columns is None:
@@ -72,6 +75,7 @@ def auto_gap_bins(df, columns = None, n_bins = 4, bins = None):
     if len(border) < 2: return [1, np.inf]
 
     return [*border, np.inf]
+
 
 def characterize_gaps(df, cfg, debug_mode, logging_info = None, bins = None):
     """
