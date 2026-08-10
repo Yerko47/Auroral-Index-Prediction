@@ -18,15 +18,13 @@ def path_file() -> dict:
         "metric_result_file": ("results", "metric"),
 
         "checkpoint_file": ("results", "checkpoints"),
-
-        "figure_benchmark_file": ("figures", "interpolation", "benchmark"),
-        "figure_history_diff_file": ("figures", "interpolation", "history_diff")
     }
 
     paths = {key: base.joinpath(*parts) for key, parts in project_paths.items()}
     paths["config_file"] = base / "config"
     paths["config_model_file"] = base / "config" / "models"
     paths["log_file"] = base / "log"
+    paths["figures"] = base / "figures"
 
     for path in paths.values():
         path.mkdir(parents = True, exist_ok = True)
