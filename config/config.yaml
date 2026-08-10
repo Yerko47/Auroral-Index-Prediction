@@ -10,7 +10,7 @@ project:
 dataset:
   time_range:
     start: "1995-01-01"
-    end: "2018-12-31"
+    end: "2018-03-01"
   
   omni_list: [
     "B_T",
