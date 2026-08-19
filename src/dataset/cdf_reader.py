@@ -1,10 +1,11 @@
+from datetime import datetime
 from pathlib import Path
 
 import cdflib
-import pandas as pd
+import polars as pl
 import numpy as np
 
-def cdf_read(cdf_file: Path, cfg: dict, debug_mode: bool, logging_info = None) -> pd.DataFrame:
+def cdf_reader(cdf_file: Path, cfg: dict, debug_mode: bool, logging_info = None) -> pl.DataFrame:
     """
     """
     try:
@@ -12,7 +13,9 @@ def cdf_read(cdf_file: Path, cfg: dict, debug_mode: bool, logging_info = None) -
     except Exception as e:
         raise RuntimeError(f"Error opening or reading the CDF file {cdf_file}") from e
 
-    cdf_rename = {"B_T": "F"}
+    cdf_rename = {
+        "B_T": "F"
+    }
 
     columns_config = cfg["dataset"]["omni_list"] + cfg["dataset"]["auroral_index"]
     columns_dataset = [cdf_rename.get(col, col) for col in columns_config]
@@ -26,9 +29,10 @@ def cdf_read(cdf_file: Path, cfg: dict, debug_mode: bool, logging_info = None) -
     data: dict[str, np.ndarray] = {}
     no_attrs: list[str] = []
 
+
     for var in columns_dataset:
         arr = cdf[var][...]
-        values = np.asarray(arr, dtype = "float64")
+        values = np.asarray(arr, dtype = "float32")
         finite = np.isfinite(values)
         mask = ~finite
 
@@ -56,65 +60,65 @@ def cdf_read(cdf_file: Path, cfg: dict, debug_mode: bool, logging_info = None) -
         values[mask] = np.nan
         data[var] = values
 
-    df = pd.DataFrame(data)
-    df.index = pd.to_datetime(cdflib.cdfepoch.to_datetime(cdf["Epoch"][...]))
-    df.index.name = "Epoch"
-    df = df.sort_index()
+        epoch = cdflib.cdfepoch.to_datetime(cdf["Epoch"][...])
+        df = pl.DataFrame(data)
+        df = df.with_columns(pl.Series("Epoch", epoch))
+        df = df.sort("Epoch")
 
-    df = df.rename(columns = {native: name for name, native in cdf_rename.items()})
+        df = df.rename(mapping = {native: name for name, native in cdf_rename.items()})
 
-    if no_attrs and logging_info is not None:
-        logging_info(debug_mode, f"Variables without FILLVAL/VALIDMIN/VALIDMAX: {', '.join(no_attrs)}")
+        if no_attrs and logging_info is not None:
+            logging_info(debug_mode, f"Variables without FILLVVAL/VALIDMIN/VALIDMAX: {', '.join(no_attrs)}")
 
-        for col in df.columns:
-            logging_info(debug_mode,
-                f"{col:>18}  NaN: {df[col].isna().mean():6.2%} "
-                f"min: {df[col].min():12.3f}    |    max: {df[col].max():12.3f}"
-            )
+            for col in df.columns:
+                logging_info(debug_mode,
+                    f"{col:>18} NaN: {df[col].is_null().mean():6.2%} "
+                    f"min: {df[col].min():12.3f}   |   max: {df[col].max():12.3f}"
+                )
 
     return df
 
 
-def dataset(config: dict, paths: dict, debug_mode: bool, logging_info = None) -> pd.DataFrame:
+def dataset(cfg: dict, paths: dict, debug_mode: bool, logging_info = None) -> pl.DataFrame:
     """
     """
-    start_time = pd.Timestamp(config["dataset"]["time_range"]["start"])    
-    end_time = pd.Timestamp(config["dataset"]["time_range"]["end"])
+    start_time = datetime.fromisoformat(cfg["dataset"]["time_range"]["start"])
+    end_time = datetime.fromisoformat(cfg["dataset"]["time_range"]["end"])
 
     save_feather_file = paths["raw_file"] / f"data_{start_time.year}_to_{end_time.year}.feather"
 
     if save_feather_file.exists():
-        logging_info(debug_mode, 
-                     f"Loading the raw_data from feather file into {save_feather_file}"
-                     )
-        df = pd.read_feather(save_feather_file)
+        logging_info(debug_mode,
+            f"Loading the raw data from feather file into {save_feather_file}"
+        )
+        df = pl.read_ipc(save_feather_file)
 
         return df
 
     logging_info(debug_mode,
-                 f"Reading OMNI data from date {start_time.strftime('%Y-%m-%d')} to {end_time.strftime('%Y-%m-%d')}\n"
-                 f"="*70
-                 )
+        f"Reading OMNI data from date {start_time.strftime('%Y-%m-%d')} to {end_time.strftime('%Y-%m-%d')}\n"
+        f"="*70
+    )
 
     omni_path = paths["omni_file"]
-    date_array = pd.date_range(start = start_time, end = end_time, freq = "MS")
+    date_array = pl.date_range(start_time, end_time, interval = "1mo", eager = True)
 
     o = []
     for date in date_array:
         name_file = f"omni_hro_1min_{date.strftime('%Y%m%d')}_v01.cdf"
-        cdf = cdf_read(cdf_file = omni_path / f"{date.year}" / name_file, cfg = config, debug_mode = debug_mode, logging_info = logging_info)
-        logging_info(debug_mode, f"The file {name_file} is loading")
+        cdf = cdf_reader(cdf_file = omni_path / f"{date.year}" / name_file, cfg = cfg, debug_mode = debug_mode, logging_info = logging_info)
+        logging_info(debug_mode,
+            f"The file {name_file} is loading"
+        )
         o.append(cdf)
 
-    df = pd.concat(o, axis = 0)
-    df = df.sort_index()
+    df = pl.concat(o)
+    df = df.sort("Epoch")
 
-    df.to_feather(save_feather_file)
+    df.write_ipc(save_feather_file)
     logging_info(debug_mode,
-                 f"File saved in {save_feather_file}"
-                 f"="*70
-                 )
+        f"File save in {save_feather_file}"
+        f"="*70
+    )
 
     return df
-
-
