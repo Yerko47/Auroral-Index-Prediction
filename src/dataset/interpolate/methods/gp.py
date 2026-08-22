@@ -1,24 +1,31 @@
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel
 
 from ..core import nan_runs
 
-def fill_gaussian_process(series, windows = 120, seed = 7):
+def fill_gaussian_process(series: pl.Series, windows: int = 120, seed: int = 7, optimize_hyperparams: bool = True):
     """
+    Rellena huecos interiores de una serie con un Proceso Gaussiano Local.
+    Para cada rango de calores faltantes que no toca los extremos de la serie, ajusta un GaussianProcessRegressor sobre una ventana de contexto válido a ambos lados del hueco y predice los valores faltantes junto con su desviación estándar. Los datos se centran y escalan antes de ajustar y se des-escalan al predecir, para estabilizar el ajuste.
     """
-    values = series.to_numpy(dtype = "float32")
+    name = series.name
+    values = series.to_numpy().astype("float32")
     n = values.size
     valid = np.isfinite(values)
-    fill = values.copy()
 
-    sigma = np.full(n, np.nan)
+    fill = values.copy()
+    sigma = np.full(n. np.nan)
     x_all = np.arange(n, dtype = "float32")
 
+    kernel = ConstantKernel(1.0) * RBF(length_scale = 30.0) + WhiteKernel(noise_level = 0.1)
+    optimizer = "fmin_1_bfgs_b" if optimize_hyperparams else None
+
     for start, length in nan_runs(~valid):
-        if start == 0 or start + length == n: continue
+        if start == 0 or start + length == n:
+            continue
 
         lo = max(0, start - windows)
         hi = min(n, start + length + windows)
@@ -27,25 +34,30 @@ def fill_gaussian_process(series, windows = 120, seed = 7):
         x_ctx = x_all[lo:hi][ctx_mask]
         y_ctx = values[lo:hi][ctx_mask]
 
-        if x_ctx.size < 3: continue
+        if x_ctx.size < 3:
+            continue
 
         x0 = x_ctx.mean()
         y0 = y_ctx.mean()
-
         y_std = y_ctx.std() if y_ctx.std() > 0 else 1.0
 
-        kernel = (ConstantKernel(1.0) * RBF(length_scale = 30.0) + WhiteKernel(noise_level = 0.1))
-        gp = GaussianProcessRegressor(kernel = kernel, normalize_y = False, random_state = seed, n_restarts_optimizer = 0)
+        gp = GaussianProcessRegressor(
+            kernel = kernel,
+            normalize_y = False,
+            random_state = seed,
+            n_restarts_optimizer = 0,
+            optimizer = optimizer,
+        )
+
         gp.fit((x_ctx - x0).reshape(-1, 1), (y_ctx - y0) / y_std)
 
         x_gap = x_all[start:start + length]
-
         mu, sd = gp.predict((x_gap - x0).reshape(-1, 1), return_std = True)
 
         fill[start:start + length] = mu * y_std + y0
-        sigma[start:start + length] = sd * y_std
+        sigma[start: start + length] = sd * y_std
 
-    series_out = pd.Series(fill, index = series.index, name = series.name)
-    sigma_out = pd.Series(sigma, index = series.index, name = f"{series.name}_sigma")
+    series_out = pl.Series(name, fill)
+    sigma_out = pl.Series(f"{name}_sigma", sigma)
 
     return series_out, sigma_out
