@@ -97,15 +97,15 @@ def plot_history_gaps(df_interp, df_original, applied, save_dir, context=200, ma
 
         fig, axes = plt.subplots(len(variables), 1, figsize=(10, 1.8 * len(variables)),
                                  sharex=True, squeeze=False)
+        seg = slice(start - lo, start - lo + length)
+        color = _METHOD_COLORS.get(m, "#d62728")
         for ax, v in zip(axes[:, 0], variables):
             tt = t[lo:hi]
             ax.plot(tt, df_original[v].to_numpy()[lo:hi], color="#333333", lw=0.9, label="original")
+            ax.axvspan(tt[seg][0], tt[seg][-1], color=color, alpha=0.12)   # zona de interpolacion en todas las variables
             if v == col:
-                seg = slice(start - lo, start - lo + length)
                 interp = df_interp[v].to_numpy()[lo:hi]
-                color = _METHOD_COLORS.get(m, "#d62728")
                 ax.plot(tt[seg], interp[seg], color=color, lw=1.8, label=f"interp ({m})")
-                ax.axvspan(tt[seg][0], tt[seg][-1], color=color, alpha=0.12)
             ax.set_ylabel(v)
             ax.legend(loc="upper right", fontsize=7)
         axes[0, 0].set_title(f"Zona interpolada en {col} | metodo={m} | largo={length} min")
