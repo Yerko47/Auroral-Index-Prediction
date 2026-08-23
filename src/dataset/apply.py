@@ -49,7 +49,10 @@ def _choose_method(method, col, length, icfg, winners, bins):
         return "pchip" if length <= icfg["umbral_corto"] else "iterative"
     if method == "best":
         lab = bin_labels(bins)[assign_bin(length, bins)]
-        return winners.get((col, lab)) or winners.get((col, "all")) or "pchip"
+        chosen = winners.get((col, lab)) or winners.get((col, "all")) or "pchip"
+        if chosen == "gp" and length > icfg["umbral_corto"]:
+            return "iterative"   # gp solo es candidato en huecos cortos; los largos van a iterative
+        return chosen
     raise ValueError(f"metodo de interpolacion desconocido: {method}")
 
 
@@ -114,26 +117,33 @@ def apply_interpolation(df, cfg, benchmark_result=None, seed=7, debug_mode=False
         if not gaps:
             continue
 
+        # 1) resolver el metodo de cada hueco
+        chosen = [(_choose_method(method, col, length, icfg, winners, bins), start, length)
+                  for start, length in gaps]
+        methods_used = {m for m, _, _ in chosen}
+
+        # 2) precalcular solo los metodos que se usan; el GP se ajusta solo en los huecos asignados a gp
         out = df[col].to_numpy().astype("float32")
-        cache = {}
+        fills = {}
+        if "pchip" in methods_used:
+            fills["pchip"] = fill_pchip(df[col]).to_numpy()
+        if "iterative" in methods_used:
+            fills["iterative"] = iter_df[col].to_numpy()
+        if "gp" in methods_used:
+            gp_mask = np.zeros(len(df), dtype=bool)
+            for m, start, length in chosen:
+                if m == "gp":
+                    gp_mask[start:start + length] = True
+            fills["gp"] = fill_gaussian_process(
+                df[col], windows=gp_windows, seed=seed,
+                optimize_hyperparams=gp_optimize,
+                length_scale=gp_length_scale, noise_level=gp_noise_level,
+                only_mask=gp_mask,
+            )[0].to_numpy()
 
-        def get_fill(m):
-            if m == "iterative":
-                return iter_df[col].to_numpy()
-            if m not in cache:
-                if m == "pchip":
-                    cache[m] = fill_pchip(df[col]).to_numpy()
-                else:
-                    cache[m] = fill_gaussian_process(
-                        df[col], windows=gp_windows, seed=seed,
-                        optimize_hyperparams=gp_optimize,
-                        length_scale=gp_length_scale, noise_level=gp_noise_level,
-                    )[0].to_numpy()
-            return cache[m]
-
-        for start, length in gaps:
-            m = _choose_method(method, col, length, icfg, winners, bins)
-            out[start:start + length] = get_fill(m)[start:start + length]
+        # 3) aplicar y registrar procedencia
+        for m, start, length in chosen:
+            out[start:start + length] = fills[m][start:start + length]
             applied.append({
                 "column": col, "start": int(start), "length": int(length),
                 "t_start": t[start], "t_end": t[start + length - 1], "method": m,

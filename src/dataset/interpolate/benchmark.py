@@ -167,6 +167,7 @@ def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, featur
                 gapped[col], windows = gp_windows, seed = seed,
                 optimize_hyperparams = gp_optimize,
                 length_scale = gp_length_scale, noise_level = gp_noise_level,
+                only_mask = injected[col],
             )[0].to_numpy(),
             injected[col], bins, labels
         )

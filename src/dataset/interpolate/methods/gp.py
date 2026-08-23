@@ -6,10 +6,11 @@ from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel
 
 from ..core import nan_runs
 
-def fill_gaussian_process(series: pl.Series, windows: int = 120, seed: int = 7, optimize_hyperparams: bool = True, length_scale: float = 30.0, noise_level: float = 0.1):
+def fill_gaussian_process(series: pl.Series, windows: int = 120, seed: int = 7, optimize_hyperparams: bool = True, length_scale: float = 30.0, noise_level: float = 0.1, only_mask: np.ndarray = None):
     """
     Rellena huecos interiores de una serie con un Proceso Gaussiano Local.
     Para cada rango de valores faltantes que no toca los extremos de la serie, ajusta un GaussianProcessRegressor sobre una ventana de contexto válido a ambos lados del hueco y predice los valores faltantes junto con su desviación estándar. Los datos se centran y escalan antes de ajustar y se des-escalan al predecir, para estabilizar el ajuste.
+    Si only_mask (booleano del largo de la serie) se entrega, solo se ajustan los huecos que caen dentro de esa máscara; el resto queda como NaN. Evita ajustar un GP por cada hueco de la columna cuando solo se necesitan algunos (huecos inyectados del benchmark, o huecos asignados a gp en modo best).
     """
     name = series.name
     values = series.to_numpy().astype("float32")
@@ -25,6 +26,8 @@ def fill_gaussian_process(series: pl.Series, windows: int = 120, seed: int = 7, 
 
     for start, length in nan_runs(~valid):
         if start == 0 or start + length == n:
+            continue
+        if only_mask is not None and not only_mask[start:start + length].any():
             continue
 
         lo = max(0, start - windows)
