@@ -148,21 +148,22 @@ def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, featur
     trues = {col: df[col].to_numpy() for col in target_columns}
     n_cols = len(target_columns)
 
+    # pchip: todas las columnas antes de pasar al siguiente metodo
     for i, col in enumerate(target_columns, start = 1):
-        true = trues[col]
-
         if logging_info is not None:
             logging_info(debug_mode, f"{'pchip':>10}   |   {col:>18}   |   avance: {i / n_cols:6.1%}")
         rows += _scored_rows(
-            "pchip", col, true,
+            "pchip", col, trues[col],
             fill_pchip(gapped[col]).to_numpy(),
             injected[col], bins, labels
         )
 
+    # gp: todas las columnas
+    for i, col in enumerate(target_columns, start = 1):
         if logging_info is not None:
             logging_info(debug_mode, f"{'gp':>10}   |   {col:>18}   |   avance: {i / n_cols:6.1%}")
         rows += _scored_rows(
-            "gp", col, true,
+            "gp", col, trues[col],
             fill_gaussian_process(
                 gapped[col], windows = gp_windows, seed = seed,
                 optimize_hyperparams = gp_optimize,
@@ -172,6 +173,7 @@ def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, featur
             injected[col], bins, labels
         )
 
+    # iterative: una sola pasada MICE sobre todas las columnas
     if logging_info is not None:
         logging_info(debug_mode, f"{'iterative':>10}   |   MICE sobre {len(gapped):,} filas (max_iter: {iter_max_iter}, columnas: {len(feature_columns)})")
     imputed = fill_iterative(gapped, columns = feature_columns, seed = seed, max_iter = iter_max_iter)

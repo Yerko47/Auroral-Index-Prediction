@@ -33,6 +33,7 @@ dataset:
 
 interpolation:
   benchmark: True   # (ignorado) el benchmark ahora solo corre si method=best
+  reuse: True       # si existen los .feather interpolados en data/processed, se cargan y se omite recalcular
   method: best      # auto | pchip | iterative | gp | best
   umbral_corto: 15
   n_bins: 4

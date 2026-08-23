@@ -3,7 +3,8 @@ from src.utils import (
     logging_titulo, logging_info, create_new_file,
 )
 from src.dataset import dataset
-from src.dataset.apply import apply_interpolation, apply_scaling, save_interpolation
+from src.dataset.apply import apply_interpolation, apply_scaling, save_interpolation, load_interpolation
+from src.dataset.interpolate.core import characterize_gaps
 from src.dataset.interpolate.benchmark import benchmark_methods
 from src.figure.figure_interpolation import plot_history_gaps
 
@@ -25,33 +26,41 @@ def main():
 
     icfg = cfg["interpolation"]
 
-    # 2) Benchmark (solo si el metodo lo necesita para elegir ganador: best)
-    bench = None
-    if icfg["method"] == "best":
-        gcfg = icfg.get("gp", {})
-        itcfg = icfg.get("iterative", {})
-        plot_dir = (create_new_file(paths, "figures", "interpolation")
-                    if cfg["project"].get("plot", False) and icfg.get("plot_benchmark", False)
-                    else None)
-        bench = benchmark_methods(
-            df, seed=seed,
-            n_gaps=icfg.get("n_gaps_por_repeticion", 40),
-            n_bins=icfg.get("n_bins", 4),
-            gp_windows=gcfg.get("windows", 120),
-            gp_length_scale=gcfg.get("length_scale", 30.0),
-            gp_noise_level=gcfg.get("noise_level", 0.1),
-            gp_optimize=gcfg.get("optimize_hyperparams", False),
-            iter_max_iter=itcfg.get("max_iter", 10),
-            plot_dir=plot_dir,
-            debug_mode=debug_mode, logging_info=logging_info,
-        )
+    # 1b) Resumen de huecos/faltantes del dataset
+    characterize_gaps(df, cfg, debug_mode, logging_info)
 
-    # 3) Interpolacion segun config (devuelve datos SIN escalar + procedencia)
-    df_interp, applied = apply_interpolation(df, cfg, benchmark_result=bench, seed=seed,
-                                             debug_mode=debug_mode, logging_info=logging_info)
+    # 2) Reuso: si ya existe el interpolado en data/processed, se carga y se omite benchmark + interpolacion
+    cached = load_interpolation(cfg, paths, debug_mode, logging_info) if icfg.get("reuse", True) else None
+    if cached is not None:
+        df_interp, applied = cached
+    else:
+        # 2a) Benchmark (solo si el metodo lo necesita para elegir ganador: best)
+        bench = None
+        if icfg["method"] == "best":
+            gcfg = icfg.get("gp", {})
+            itcfg = icfg.get("iterative", {})
+            plot_dir = (create_new_file(paths, "figures", "interpolation")
+                        if cfg["project"].get("plot", False) and icfg.get("plot_benchmark", False)
+                        else None)
+            bench = benchmark_methods(
+                df, seed=seed,
+                n_gaps=icfg.get("n_gaps_por_repeticion", 40),
+                n_bins=icfg.get("n_bins", 4),
+                gp_windows=gcfg.get("windows", 120),
+                gp_length_scale=gcfg.get("length_scale", 30.0),
+                gp_noise_level=gcfg.get("noise_level", 0.1),
+                gp_optimize=gcfg.get("optimize_hyperparams", False),
+                iter_max_iter=itcfg.get("max_iter", 10),
+                plot_dir=plot_dir,
+                debug_mode=debug_mode, logging_info=logging_info,
+            )
 
-    # 3b) Guardar interpolado (sin escalar) + procedencia en data/processed
-    save_interpolation(df_interp, applied, cfg, paths, debug_mode, logging_info)
+        # 2b) Interpolacion segun config (devuelve datos SIN escalar + procedencia)
+        df_interp, applied = apply_interpolation(df, cfg, benchmark_result=bench, seed=seed,
+                                                 debug_mode=debug_mode, logging_info=logging_info)
+
+        # 2c) Guardar interpolado (sin escalar) + procedencia en data/processed
+        save_interpolation(df_interp, applied, cfg, paths, debug_mode, logging_info)
 
     # 4) Figuras ANTES de escalar (los graficos del benchmark se generan dentro de benchmark_methods)
     if cfg["project"].get("plot", False):

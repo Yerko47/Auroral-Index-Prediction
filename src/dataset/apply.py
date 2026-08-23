@@ -196,11 +196,7 @@ def save_interpolation(df_interp: pl.DataFrame, provenance: pl.DataFrame, cfg: d
     Guarda el DataFrame interpolado (sin escalar) y su tabla de procedencia en data/processed.
     El interpolado se escribe en formato feather; la procedencia (una fila por zona rellenada: column, start, length, t_start, t_end, method) se escribe en un archivo aparte. Los nombres siguen el patrón del raw, usando el rango de fechas de cfg["dataset"]["time_range"].
     """
-    start_time = datetime.fromisoformat(cfg["dataset"]["time_range"]["start"])
-    end_time = datetime.fromisoformat(cfg["dataset"]["time_range"]["end"])
-
-    interp_file = paths["processed_file"] / f"interp_{start_time.year}_to_{end_time.year}.feather"
-    provenance_file = paths["processed_file"] / f"provenance_{start_time.year}_to_{end_time.year}.feather"
+    interp_file, provenance_file = _interp_file_paths(cfg, paths)
 
     df_interp.write_ipc(interp_file)
     provenance.write_ipc(provenance_file)
@@ -211,3 +207,40 @@ def save_interpolation(df_interp: pl.DataFrame, provenance: pl.DataFrame, cfg: d
             f"Provenance saved in {provenance_file}\n"
             + "=" * 70
         )
+
+
+def _interp_file_paths(cfg: dict, paths: dict):
+    """
+    Devuelve (interp_file, provenance_file) en data/processed segun el rango de fechas de cfg.
+    Unico lugar donde se arma el patron de nombres, para que guardado y carga no se desincronicen.
+    """
+    start_time = datetime.fromisoformat(cfg["dataset"]["time_range"]["start"])
+    end_time = datetime.fromisoformat(cfg["dataset"]["time_range"]["end"])
+
+    interp_file = paths["processed_file"] / f"interp_{start_time.year}_to_{end_time.year}.feather"
+    provenance_file = paths["processed_file"] / f"provenance_{start_time.year}_to_{end_time.year}.feather"
+
+    return interp_file, provenance_file
+
+
+def load_interpolation(cfg: dict, paths: dict, debug_mode: bool, logging_info = None):
+    """
+    Carga el interpolado (sin escalar) y su procedencia desde data/processed si ambos archivos existen.
+    Devuelve (df_interp, provenance) para reusar el resultado y evitar repetir la interpolacion; devuelve None si falta alguno de los dos, para que el llamador recalcule.
+    """
+    interp_file, provenance_file = _interp_file_paths(cfg, paths)
+
+    if not (interp_file.exists() and provenance_file.exists()):
+        return None
+
+    df_interp = pl.read_ipc(interp_file)
+    provenance = pl.read_ipc(provenance_file)
+
+    if logging_info is not None:
+        logging_info(debug_mode,
+            f"Interpolated data loaded from {interp_file}\n"
+            f"Provenance loaded from {provenance_file}\n"
+            + "=" * 70
+        )
+
+    return df_interp, provenance
