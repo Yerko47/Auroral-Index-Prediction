@@ -140,9 +140,21 @@ def apply_interpolation(df, cfg, benchmark_result=None, seed=7, debug_mode=False
             })
         result = result.with_columns(pl.Series(col, out))
 
-    schema = {"column": pl.Utf8, "start": pl.Int64, "length": pl.Int64,
-              "t_start": pl.Datetime, "t_end": pl.Datetime, "method": pl.Utf8}
-    provenance = pl.DataFrame(applied) if applied else pl.DataFrame(schema=schema)
+    if applied:
+        # Construccion por columnas: t_start/t_end son escalares numpy.datetime64;
+        # via lista de dicts Polars los infiere como Object (no escribible a IPC).
+        provenance = pl.DataFrame({
+            "column": [r["column"] for r in applied],
+            "start": [r["start"] for r in applied],
+            "length": [r["length"] for r in applied],
+            "t_start": np.array([r["t_start"] for r in applied]),
+            "t_end": np.array([r["t_end"] for r in applied]),
+            "method": [r["method"] for r in applied],
+        })
+    else:
+        schema = {"column": pl.Utf8, "start": pl.Int64, "length": pl.Int64,
+                  "t_start": pl.Datetime, "t_end": pl.Datetime, "method": pl.Utf8}
+        provenance = pl.DataFrame(schema=schema)
     return result, provenance
 
 
