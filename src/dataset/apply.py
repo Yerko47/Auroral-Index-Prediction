@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import numpy as np
 import polars as pl
 
@@ -135,3 +137,25 @@ def apply_scaling(df, cfg, columns=None):
         [pl.Series(c, Xs[:, j].astype("float32")) for j, c in enumerate(columns)]
     )
     return scaled, scaler
+
+
+def save_interpolation(df_interp: pl.DataFrame, provenance: pl.DataFrame, cfg: dict, paths: dict, debug_mode: bool, logging_info = None) -> None:
+    """
+    Guarda el DataFrame interpolado (sin escalar) y su tabla de procedencia en data/processed.
+    El interpolado se escribe en formato feather; la procedencia (una fila por zona rellenada: column, start, length, t_start, t_end, method) se escribe en un archivo aparte. Los nombres siguen el patrón del raw, usando el rango de fechas de cfg["dataset"]["time_range"].
+    """
+    start_time = datetime.fromisoformat(cfg["dataset"]["time_range"]["start"])
+    end_time = datetime.fromisoformat(cfg["dataset"]["time_range"]["end"])
+
+    interp_file = paths["processed_file"] / f"interp_{start_time.year}_to_{end_time.year}.feather"
+    provenance_file = paths["processed_file"] / f"provenance_{start_time.year}_to_{end_time.year}.feather"
+
+    df_interp.write_ipc(interp_file)
+    provenance.write_ipc(provenance_file)
+
+    if logging_info is not None:
+        logging_info(debug_mode,
+            f"Interpolated data saved in {interp_file}\n"
+            f"Provenance saved in {provenance_file}\n"
+            + "=" * 70
+        )
