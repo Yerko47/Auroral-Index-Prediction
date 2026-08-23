@@ -32,26 +32,15 @@ dataset:
   ]
 
 interpolation:
-  # metodo aplicado a los gaps: auto | pchip | iterative | gp
-  # auto: PCHIP bajo umbral_corto, imputacion multivariada sobre el umbral
-  method: auto
-
-  # largo de gap (min) que separa gaps cortos de largos cuando method es auto
-  umbral_corto: 15
-
-  # comparar los metodos con gaps sinteticos antes de aplicar
   benchmark: True
-
-  benchmark_methods: ["pchip", "iterative", "gp"]
-  benchmark_target: null       # null: primera columna con gaps
-  n_repeticiones: 5
+  method: auto      # auto | pchip | iterative | gp | best
+  umbral_corto: 15
+  n_bins: 4
   n_gaps_por_repeticion: 40
-  n_bins: 4                    # bins de largo derivados por cuantiles
 
-  # figuras: metricas del benchmark y zonas de gap historicas
-  plot_benchmark: True
-  plot_history_diff: True
-  max_figuras: 50
+scaling:
+  method: standard    # standard | robust | minmax
+
 
 model:
   type: False
