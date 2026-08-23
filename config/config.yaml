@@ -32,11 +32,20 @@ dataset:
   ]
 
 interpolation:
-  benchmark: True
-  method: auto      # auto | pchip | iterative | gp | best
+  benchmark: True   # (ignorado) el benchmark ahora solo corre si method=best
+  method: best      # auto | pchip | iterative | gp | best
   umbral_corto: 15
   n_bins: 4
   n_gaps_por_repeticion: 40
+
+  iterative:
+    max_iter: 5     # MICE: iteraciones (5 suele converger; menos es mas rapido en 12MM filas)
+
+  gp:
+    windows: 120                 # contexto (min) a cada lado del hueco
+    length_scale: 30.0           # escala del kernel RBF (min)
+    noise_level: 0.1             # ruido del WhiteKernel
+    optimize_hyperparams: False  # False deja el kernel fijo (mucho mas rapido con muchos huecos)
 
 scaling:
   method: standard    # standard | robust | minmax

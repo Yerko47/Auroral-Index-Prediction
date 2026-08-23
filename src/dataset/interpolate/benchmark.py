@@ -103,7 +103,7 @@ def _scored_rows(method, col, true, pred, injected, bins, labels):
     return rows
 
 
-def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, feature_columns: list[str] = None, n_gaps: int = 150, gap_lengths = None, n_bins: int = 4, seed: int = 7, debug_mode: bool = False, logging_info = None) -> pl.DataFrame:
+def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, feature_columns: list[str] = None, n_gaps: int = 150, gap_lengths = None, n_bins: int = 4, seed: int = 7, gp_windows: int = 120, gp_length_scale: float = 30.0, gp_noise_level: float = 0.1, gp_optimize: bool = False, iter_max_iter: int = 10, plot_dir = None, debug_mode: bool = False, logging_info = None) -> pl.DataFrame:
     """
     Compara pchip, gp e iterative reconstruyendo huecos sintéticos.
     Inyecta huecos en posiciones válidas de cada columna objetivo, aplica los tres métodos y mide el error contra la verdad conocida, global y por bin de largo de hueco. Las mismas posiciones se usan para todos los métodos.
@@ -146,12 +146,13 @@ def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, featur
 
     rows = []
     trues = {col: df[col].to_numpy() for col in target_columns}
+    n_cols = len(target_columns)
 
-    for col in target_columns:
+    for i, col in enumerate(target_columns, start = 1):
         true = trues[col]
 
         if logging_info is not None:
-            logging_info(debug_mode, f"{'pchip':>10}   |   column: {col}")
+            logging_info(debug_mode, f"{'pchip':>10}   |   {col:>18}   |   avance: {i / n_cols:6.1%}")
         rows += _scored_rows(
             "pchip", col, true,
             fill_pchip(gapped[col]).to_numpy(),
@@ -159,16 +160,20 @@ def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, featur
         )
 
         if logging_info is not None:
-            logging_info(debug_mode, f"{'gp':>10}   |   column: {col}")
+            logging_info(debug_mode, f"{'gp':>10}   |   {col:>18}   |   avance: {i / n_cols:6.1%}")
         rows += _scored_rows(
             "gp", col, true,
-            fill_gaussian_process(gapped[col], seed = seed)[0].to_numpy(),
+            fill_gaussian_process(
+                gapped[col], windows = gp_windows, seed = seed,
+                optimize_hyperparams = gp_optimize,
+                length_scale = gp_length_scale, noise_level = gp_noise_level,
+            )[0].to_numpy(),
             injected[col], bins, labels
         )
 
     if logging_info is not None:
-        logging_info(debug_mode, f"{'iterative':>10}   |   columns: {len(feature_columns)}")
-    imputed = fill_iterative(gapped, columns = feature_columns, seed = seed)
+        logging_info(debug_mode, f"{'iterative':>10}   |   MICE sobre {len(gapped):,} filas (max_iter: {iter_max_iter}, columnas: {len(feature_columns)})")
+    imputed = fill_iterative(gapped, columns = feature_columns, seed = seed, max_iter = iter_max_iter)
     for col in target_columns:
         rows += _scored_rows(
             "iterative", col, trues[col],
@@ -176,4 +181,13 @@ def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, featur
             injected[col], bins, labels
         )
 
-    return pl.DataFrame(rows)
+    res = pl.DataFrame(rows)
+
+    if plot_dir is not None:
+        from ...figure.figure_interpolation import plot_benchmark_overall, plot_benchmark_by_window
+        plot_benchmark_overall(res, save_path = plot_dir / "benchmark_overall.png")
+        plot_benchmark_by_window(res, save_path = plot_dir / "benchmark_por_ventana.png")
+        if logging_info is not None:
+            logging_info(debug_mode, f"Benchmark plots saved in {plot_dir}")
+
+    return res

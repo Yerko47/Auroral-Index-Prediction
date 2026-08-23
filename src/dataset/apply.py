@@ -53,7 +53,7 @@ def _choose_method(method, col, length, icfg, winners, bins):
     raise ValueError(f"metodo de interpolacion desconocido: {method}")
 
 
-def apply_interpolation(df, cfg, benchmark_result=None, seed=7):
+def apply_interpolation(df, cfg, benchmark_result=None, seed=7, debug_mode=False, logging_info=None):
     """
     Aplica la interpolación a las columnas flotantes según cfg["interpolation"].
     Rellena solo los gaps interiores. Cada gap se rellena con el método fijo (pchip/gp/iterative), por umbral (auto) o el ganador del benchmark por variable y bin (best). Devuelve el DataFrame interpolado (sin escalar) y una tabla de procedencia con una fila por zona: column, start, length, t_start, t_end, method.
@@ -61,6 +61,17 @@ def apply_interpolation(df, cfg, benchmark_result=None, seed=7):
     icfg = cfg["interpolation"]
     method = icfg["method"]
     target = [c for c, dt in df.schema.items() if dt.is_float()]
+
+    gcfg = icfg.get("gp", {})
+    itcfg = icfg.get("iterative", {})
+    gp_windows = gcfg.get("windows", 120)
+    gp_length_scale = gcfg.get("length_scale", 30.0)
+    gp_noise_level = gcfg.get("noise_level", 0.1)
+    gp_optimize = gcfg.get("optimize_hyperparams", True)
+    iter_max_iter = itcfg.get("max_iter", 10)
+
+    if logging_info is not None:
+        logging_info(debug_mode, f"Interpolation (method: {method}, columns: {len(target)}, rows: {len(df):,})")
 
     winners = None
     bins = None
@@ -73,20 +84,33 @@ def apply_interpolation(df, cfg, benchmark_result=None, seed=7):
                 df, target_columns=target, feature_columns=target,
                 n_gaps=icfg.get("n_gaps_por_repeticion", 40),
                 gap_lengths=gl, n_bins=icfg.get("n_bins", 4), seed=seed,
+                gp_windows=gp_windows, gp_length_scale=gp_length_scale,
+                gp_noise_level=gp_noise_level, gp_optimize=gp_optimize,
+                iter_max_iter=iter_max_iter,
+                debug_mode=debug_mode, logging_info=logging_info,
             )
         winners = _winners_by_column_bin(benchmark_result)
 
     iter_df = None
     if method in ("iterative", "auto", "best"):
-        iter_df = fill_iterative(df, columns=target, seed=seed)
+        if logging_info is not None:
+            logging_info(debug_mode, f"{'iterative':>10}   |   MICE sobre {len(df):,} filas (max_iter: {iter_max_iter})")
+        iter_df = fill_iterative(df, columns=target, seed=seed, max_iter=iter_max_iter)
 
     t = df["Epoch"].to_numpy() if "Epoch" in df.columns else np.arange(len(df))
     result = df.clone()
     applied = []
 
-    for col in target:
+    n_cols = len(target)
+    for i, col in enumerate(target, start=1):
         mask = missing_mask(df[col])
         gaps = _interior_gaps(mask)
+
+        if logging_info is not None:
+            logging_info(debug_mode,
+                f"{i:>4}/{n_cols}   |   {col:>18}   |   gaps: {len(gaps):5d}   |   avance: {i / n_cols:6.1%}"
+            )
+
         if not gaps:
             continue
 
@@ -97,8 +121,14 @@ def apply_interpolation(df, cfg, benchmark_result=None, seed=7):
             if m == "iterative":
                 return iter_df[col].to_numpy()
             if m not in cache:
-                cache[m] = (fill_pchip(df[col]).to_numpy() if m == "pchip"
-                            else fill_gaussian_process(df[col], seed=seed)[0].to_numpy())
+                if m == "pchip":
+                    cache[m] = fill_pchip(df[col]).to_numpy()
+                else:
+                    cache[m] = fill_gaussian_process(
+                        df[col], windows=gp_windows, seed=seed,
+                        optimize_hyperparams=gp_optimize,
+                        length_scale=gp_length_scale, noise_level=gp_noise_level,
+                    )[0].to_numpy()
             return cache[m]
 
         for start, length in gaps:
