@@ -37,7 +37,7 @@ def inject_synthetic_gaps(valid_mask: np.ndarray, gap_lengths: np.array, n_gaps:
 
     while placed < n_gaps and attempts < cap:
         attempts += 1
-        length = int(rng.choise(gap_lengths))
+        length = int(rng.choice(gap_lengths))
         if n - length - margin <= margin:
             continue
         start = int(rng.integers(margin, n - length - margin))
@@ -103,7 +103,7 @@ def _scored_rows(method, col, true, pred, injected, bins, labels):
     return rows
 
 
-def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, feature_columns: list[str] = None, n_gaps: int = 150, gap_lengths = None, n_bins: int = 4, seed: int = 7) -> pl.DataFrame:
+def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, feature_columns: list[str] = None, n_gaps: int = 150, gap_lengths = None, n_bins: int = 4, seed: int = 7, debug_mode: bool = False, logging_info = None) -> pl.DataFrame:
     """
     Compara pchip, gp e iterative reconstruyendo huecos sintéticos.
     Inyecta huecos en posiciones válidas de cada columna objetivo, aplica los tres métodos y mide el error contra la verdad conocida, global y por bin de largo de hueco. Las mismas posiciones se usan para todos los métodos.
@@ -124,7 +124,7 @@ def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, featur
     labels = bin_labels(bins)
 
     injected = {}
-    gapped = df.clone()
+    gapped_cols = []
 
     for col in target_columns:
         values = df[col].to_numpy().astype("float64")
@@ -135,29 +135,44 @@ def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, featur
 
         g = values.copy()
         g[inj] = np.nan
-        gapped = gapped.with_columns(pl.Series(col, g.astype("float32")))
+        gapped_cols.append(pl.Series(col, g.astype("float32")))
 
+    gapped = df.with_columns(gapped_cols)
+
+    if logging_info is not None:
+        logging_info(debug_mode,
+            f"Benchmark of interpolation methods (n_gaps: {n_gaps}, seed: {seed}, columns: {len(target_columns)})"
+        )
 
     rows = []
+    trues = {col: df[col].to_numpy() for col in target_columns}
 
     for col in target_columns:
-        true = df[col].to_numpy()
+        true = trues[col]
+
+        if logging_info is not None:
+            logging_info(debug_mode, f"{'pchip':>10}   |   column: {col}")
         rows += _scored_rows(
             "pchip", col, true,
             fill_pchip(gapped[col]).to_numpy(),
             injected[col], bins, labels
         )
+
+        if logging_info is not None:
+            logging_info(debug_mode, f"{'gp':>10}   |   column: {col}")
         rows += _scored_rows(
             "gp", col, true,
-            fill_gaussian_process(gapped[col]).to_numpy(),
+            fill_gaussian_process(gapped[col], seed = seed)[0].to_numpy(),
             injected[col], bins, labels
         )
 
+    if logging_info is not None:
+        logging_info(debug_mode, f"{'iterative':>10}   |   columns: {len(feature_columns)}")
     imputed = fill_iterative(gapped, columns = feature_columns, seed = seed)
     for col in target_columns:
         rows += _scored_rows(
-            "iterative", col, df[col].to_numpy(),
-            imputed[col].to_numpy(), 
+            "iterative", col, trues[col],
+            imputed[col].to_numpy(),
             injected[col], bins, labels
         )
 

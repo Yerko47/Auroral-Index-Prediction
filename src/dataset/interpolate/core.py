@@ -174,7 +174,7 @@ def gap_regions(df: pl.DataFrame, columns = None, min_long = 1) -> list:
 
     regions = []
     n = len(df)
-    t = df["Epoch"].tu_numpy()
+    t = df["Epoch"].to_numpy()
 
     for col in columns:
         mask = missing_mask(df[col])
