@@ -17,11 +17,11 @@ def fill_gaussian_process(series: pl.Series, windows: int = 120, seed: int = 7, 
     valid = np.isfinite(values)
 
     fill = values.copy()
-    sigma = np.full(n. np.nan)
+    sigma = np.full(n, np.nan)
     x_all = np.arange(n, dtype = "float32")
 
     kernel = ConstantKernel(1.0) * RBF(length_scale = 30.0) + WhiteKernel(noise_level = 0.1)
-    optimizer = "fmin_1_bfgs_b" if optimize_hyperparams else None
+    optimizer = "fmin_l_bfgs_b" if optimize_hyperparams else None
 
     for start, length in nan_runs(~valid):
         if start == 0 or start + length == n:
