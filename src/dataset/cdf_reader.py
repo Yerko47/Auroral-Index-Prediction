@@ -60,21 +60,21 @@ def cdf_reader(cdf_file: Path, cfg: dict, debug_mode: bool, logging_info = None)
         values[mask] = np.nan
         data[var] = values
 
-        epoch = cdflib.cdfepoch.to_datetime(cdf["Epoch"][...])
-        df = pl.DataFrame(data)
-        df = df.with_columns(pl.Series("Epoch", epoch))
-        df = df.sort("Epoch")
+    epoch = cdflib.cdfepoch.to_datetime(cdf["Epoch"][...])
+    df = pl.DataFrame(data)
+    df = df.with_columns(pl.Series("Epoch", epoch))
+    df = df.sort("Epoch")
 
-        df = df.rename(mapping = {native: name for name, native in cdf_rename.items()})
+    df = df.rename(mapping = {native: name for name, native in cdf_rename.items()})
 
-        if no_attrs and logging_info is not None:
-            logging_info(debug_mode, f"Variables without FILLVVAL/VALIDMIN/VALIDMAX: {', '.join(no_attrs)}")
+    if no_attrs and logging_info is not None:
+        logging_info(debug_mode, f"Variables without FILLVAL/VALIDMIN/VALIDMAX: {', '.join(no_attrs)}")
 
-            for col in df.columns:
-                logging_info(debug_mode,
-                    f"{col:>18} NaN: {df[col].is_null().mean():6.2%} "
-                    f"min: {df[col].min():12.3f}   |   max: {df[col].max():12.3f}"
-                )
+        for col in [c for c, dt in df.schema.items() if dt.is_float()]:
+            logging_info(debug_mode,
+                f"{col:>18} NaN: {df[col].is_null().mean():6.2%} "
+                f"min: {df[col].min():12.3f}   |   max: {df[col].max():12.3f}"
+            )
 
     return df
 
@@ -97,7 +97,7 @@ def dataset(cfg: dict, paths: dict, debug_mode: bool, logging_info = None) -> pl
 
     logging_info(debug_mode,
         f"Reading OMNI data from date {start_time.strftime('%Y-%m-%d')} to {end_time.strftime('%Y-%m-%d')}\n"
-        f"="*70
+        + "=" * 70
     )
 
     omni_path = paths["omni_file"]
@@ -117,8 +117,8 @@ def dataset(cfg: dict, paths: dict, debug_mode: bool, logging_info = None) -> pl
 
     df.write_ipc(save_feather_file)
     logging_info(debug_mode,
-        f"File save in {save_feather_file}"
-        f"="*70
+        f"File save in {save_feather_file}\n"
+        + "=" * 70
     )
 
     return df

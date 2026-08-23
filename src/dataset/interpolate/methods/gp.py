@@ -9,7 +9,7 @@ from ..core import nan_runs
 def fill_gaussian_process(series: pl.Series, windows: int = 120, seed: int = 7, optimize_hyperparams: bool = True):
     """
     Rellena huecos interiores de una serie con un Proceso Gaussiano Local.
-    Para cada rango de calores faltantes que no toca los extremos de la serie, ajusta un GaussianProcessRegressor sobre una ventana de contexto válido a ambos lados del hueco y predice los valores faltantes junto con su desviación estándar. Los datos se centran y escalan antes de ajustar y se des-escalan al predecir, para estabilizar el ajuste.
+    Para cada rango de valores faltantes que no toca los extremos de la serie, ajusta un GaussianProcessRegressor sobre una ventana de contexto válido a ambos lados del hueco y predice los valores faltantes junto con su desviación estándar. Los datos se centran y escalan antes de ajustar y se des-escalan al predecir, para estabilizar el ajuste.
     """
     name = series.name
     values = series.to_numpy().astype("float32")

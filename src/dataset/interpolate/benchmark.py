@@ -1,7 +1,7 @@
 import numpy as np
 import polars as pl
 
-from .core import nan_runs, bin_labels, assign_bin, auto_gap_bins, gap_length_distribution
+from .core import nan_runs, bin_labels, assign_bin, gap_length_distribution
 from .methods import fill_pchip, fill_gaussian_process, fill_iterative
 
 def bins_from_lengths(gap_lengths: np.array, n_bins: int = 4) -> list[float]:

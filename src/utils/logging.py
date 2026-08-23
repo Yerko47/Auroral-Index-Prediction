@@ -5,7 +5,7 @@ from pathlib import Path
 #* CONFIGURACION DE LOGGING
 def config_logging(paths: dict) -> None:
     """
-    Configura el sistema de logging con salida a archivo y consula
+    Configura el sistema de logging con salida a archivo y consola
     """
     log_file = paths["log_file"]
 

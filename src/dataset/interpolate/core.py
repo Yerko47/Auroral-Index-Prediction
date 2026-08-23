@@ -110,7 +110,7 @@ def auto_gap_bins(df, columns = None, n_bins = 4, bins = None):
     return [*border, np.inf]
 
 
-def charactize_gaps(df: pl.DataFrame, cfg: dict, debug_mode: bool, logging_info = None, bins = None) -> pl.DataFrame:
+def characterize_gaps(df: pl.DataFrame, cfg: dict, debug_mode: bool, logging_info = None, bins = None) -> pl.DataFrame:
     """
     Resume, por columna, la estadística de huecos de datos faltantes. Para cada columna cuenta cuántos huecos interiores caen en cada intervalo de largo, cuántos son de borde, la fracción de faltantes y el largo máximo.
     Opcionalmente registra un resumen legible mediante logging_info.
@@ -178,7 +178,7 @@ def gap_regions(df: pl.DataFrame, columns = None, min_long = 1) -> list:
 
     for col in columns:
         mask = missing_mask(df[col])
-        for start, length in nan_runs(~mask):
+        for start, length in nan_runs(mask):
             if start == 0 or start + length == n:
                 continue
             if length < min_long:

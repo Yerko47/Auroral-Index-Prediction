@@ -5,7 +5,7 @@ from scipy.interpolate import PchipInterpolator
 
 def fill_pchip(series: pl.Series):
     """
-    Rellena huevos interiores de una serie con interpolación PCHIP.
+    Rellena huecos interiores de una serie con interpolación PCHIP.
     Ajusta un interpolador cúbico de Hermite monótono por tramos sobre los puntos válidos y evalúa en la posición faltantes. Esto no extrapola, ya que los huecos que tocan el inicio o al final de la serie quedan NaN.
     """
     values = series.to_numpy().astype("float32")
