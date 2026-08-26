@@ -32,15 +32,15 @@ dataset:
   ]
 
 interpolation:
-  benchmark: True   # (ignorado) el benchmark ahora solo corre si method=best
+  benchmark: True   # True: corre el benchmark y guarda sus graficos en figures/interpolation; False: no corre benchmark ni graficos
   reuse: True       # si existen los .feather interpolados en data/processed, se cargan y se omite recalcular
-  method: best      # auto | pchip | iterative | gp | best
+  method: auto      # auto | pchip | iterative | gp | best
   umbral_corto: 15
   n_bins: 4
   n_gaps_por_repeticion: 40
 
   iterative:
-    max_iter: 5     # MICE: iteraciones (5 suele converger; menos es mas rapido en 12MM filas)
+    max_iter: 10     # MICE: iteraciones (5 suele converger; menos es mas rapido en 12MM filas)
 
   gp:
     windows: 120                 # contexto (min) a cada lado del hueco

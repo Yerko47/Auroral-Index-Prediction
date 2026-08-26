@@ -3,6 +3,7 @@ import polars as pl
 
 from .core import nan_runs, bin_labels, assign_bin, gap_length_distribution
 from .methods import fill_pchip, fill_gaussian_process, fill_iterative
+from ...utils.paths import create_new_file
 
 def bins_from_lengths(gap_lengths: np.array, n_bins: int = 4) -> list[float]:
     """
@@ -103,12 +104,21 @@ def _scored_rows(method, col, true, pred, injected, bins, labels):
     return rows
 
 
-def benchmark_methods(df: pl.DataFrame, target_columns: list[str] = None, feature_columns: list[str] = None, n_gaps: int = 150, gap_lengths = None, n_bins: int = 4, seed: int = 7, gp_windows: int = 120, gp_length_scale: float = 30.0, gp_noise_level: float = 0.1, gp_optimize: bool = False, iter_max_iter: int = 10, plot_dir = None, debug_mode: bool = False, logging_info = None) -> pl.DataFrame:
+def benchmark_methods(df: pl.DataFrame, cfg: dict, paths: dict = None, target_columns: list[str] = None, feature_columns: list[str] = None, gap_lengths = None, seed: int = 7, debug_mode: bool = False, logging_info = None) -> pl.DataFrame:
     """
     Compara pchip, gp e iterative reconstruyendo huecos sintéticos.
     Inyecta huecos en posiciones válidas de cada columna objetivo, aplica los tres métodos y mide el error contra la verdad conocida, global y por bin de largo de hueco. Las mismas posiciones se usan para todos los métodos.
     """
     rng = np.random.default_rng(seed)
+
+    n_gaps = cfg["interpolation"]["n_gaps_por_repeticion"]
+    n_bins = cfg["interpolation"]["n_bins"]
+    gp_windows = cfg["interpolation"]["gp"]["windows"]
+    gp_length_scale = cfg["interpolation"]["gp"]["length_scale"]
+    gp_noise_level = cfg["interpolation"]["gp"]["noise_level"]
+    gp_optimize = cfg["interpolation"]["gp"]["optimize_hyperparams"]
+    iter_max_iter = cfg["interpolation"]["iterative"]["max_iter"]
+    plot_dir = create_new_file(paths, "figures", "interpolation") if paths is not None else None
 
     if target_columns is None:
         target_columns = [c for c, dt in df.schema.items() if dt.is_float()]

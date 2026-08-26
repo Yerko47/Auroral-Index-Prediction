@@ -84,13 +84,9 @@ def apply_interpolation(df, cfg, benchmark_result=None, seed=7, debug_mode=False
         bins = bins_from_lengths(gl, icfg.get("n_bins", 4))
         if benchmark_result is None:
             benchmark_result = benchmark_methods(
-                df, target_columns=target, feature_columns=target,
-                n_gaps=icfg.get("n_gaps_por_repeticion", 40),
-                gap_lengths=gl, n_bins=icfg.get("n_bins", 4), seed=seed,
-                gp_windows=gp_windows, gp_length_scale=gp_length_scale,
-                gp_noise_level=gp_noise_level, gp_optimize=gp_optimize,
-                iter_max_iter=iter_max_iter,
-                debug_mode=debug_mode, logging_info=logging_info,
+                df, cfg, target_columns = target, feature_columns = target,
+                gap_lengths = gl, seed = seed,
+                debug_mode = debug_mode, logging_info = logging_info,
             )
         winners = _winners_by_column_bin(benchmark_result)
 
